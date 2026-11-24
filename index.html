@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Agenda Hub">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<title>Agenda Hub</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    darkMode: 'media',
+    theme: { extend: { fontFamily: { sans: ['-apple-system','BlinkMacSystemFont','"SF Pro Text"','"Segoe UI Variable"','"Segoe UI"','Roboto','Helvetica','Arial','sans-serif'] } } }
+  };
+</script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+
+<style>
+  :root{
+    --bg:#f2f2f7; --card:rgba(255,255,255,.72); --card-solid:#fff; --text:#1d1d1f; --muted:#6e6e73;
+    --line:rgba(60,60,67,.14); --accent:#007aff; --red:#ff3b30; --green:#34c759; --orange:#ff9500; --fill:rgba(120,120,128,.12);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#000; --card:rgba(28,28,30,.72); --card-solid:#1c1c1e; --text:#f5f5f7; --muted:#98989d;
+      --line:rgba(84,84,88,.45); --accent:#0a84ff; --red:#ff453a; --green:#30d158; --orange:#ff9f0a; --fill:rgba(118,118,128,.24); }
+  }
+  html,body{background:var(--bg);color:var(--text);-webkit-tap-highlight-color:transparent}
+  body{min-height:100dvh;overscroll-behavior-y:none}
+  .blobs{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}
+  .blobs::before,.blobs::after{content:"";position:absolute;width:60vmax;height:60vmax;border-radius:50%;filter:blur(90px);opacity:.22}
+  .blobs::before{background:#5ac8fa;top:-25vmax;left:-15vmax}
+  .blobs::after{background:#af52de;bottom:-30vmax;right:-20vmax}
+  @media (prefers-color-scheme: dark){ .blobs::before,.blobs::after{opacity:.14} }
+
+  .glass{background:var(--card);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px)}
+  .card{background:var(--card);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);
+        border:1px solid var(--line);border-radius:18px;box-shadow:0 1px 2px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.04)}
+  .hairline{border-color:var(--line)}
+  .muted{color:var(--muted)}
+  .accent{color:var(--accent)}
+  .h-sec{font-size:13px;font-weight:600;letter-spacing:.02em;text-transform:uppercase;color:var(--muted)}
+
+  .icon-btn{width:36px;height:36px;display:inline-grid;place-items:center;border-radius:999px;background:var(--fill);color:var(--text);transition:transform .15s}
+  .icon-btn:active{transform:scale(.92)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:36px;padding:0 14px;border-radius:10px;font-size:14px;font-weight:600;background:var(--fill);color:var(--accent);transition:opacity .15s,transform .15s}
+  .btn:active{transform:scale(.97);opacity:.8}
+  .btn-primary{background:var(--accent);color:#fff}
+  .btn-danger{color:var(--red)}
+  .pill{font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--fill);white-space:nowrap}
+  .chip{font-size:13px;font-weight:500;padding:6px 12px;border-radius:999px;background:var(--fill);white-space:nowrap;transition:all .15s}
+  .chip.on{background:var(--accent);color:#fff}
+
+  .input{width:100%;height:40px;padding:0 12px;border-radius:10px;background:var(--fill);color:var(--text);font-size:16px;outline:none;border:1px solid transparent}
+  .input:focus{border-color:var(--accent)}
+  textarea.input{height:auto;padding:10px 12px;resize:vertical}
+  label.lbl{display:block;font-size:12px;font-weight:600;color:var(--muted);margin:10px 0 4px}
+
+  .day{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 0;border-radius:14px;flex:1;transition:background .15s}
+  .day .wd{font-size:11px;color:var(--muted);text-transform:uppercase}
+  .day .dn{font-size:17px;font-weight:600;width:32px;height:32px;display:grid;place-items:center;border-radius:999px}
+  .day.today .dn{color:var(--red)}
+  .day.sel .dn{background:var(--text);color:var(--bg)}
+  .day.sel.today .dn{background:var(--red);color:#fff}
+  .day .dot{width:5px;height:5px;border-radius:99px;background:var(--muted)}
+
+  .ev{display:flex;gap:12px;padding:12px;border-radius:14px;background:var(--fill);align-items:flex-start}
+  .ev .bar{width:4px;align-self:stretch;border-radius:4px;background:var(--accent)}
+  .ev.past{opacity:.55}
+  .ev.now .bar{background:var(--green)}
+
+  .row{display:flex;gap:12px;padding:12px 4px;border-bottom:1px solid var(--line)}
+  .row:last-child{border-bottom:0}
+  .clamp2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+  .check{width:22px;height:22px;border-radius:99px;border:2px solid var(--muted);flex:none;display:grid;place-items:center}
+  .check.on{background:var(--accent);border-color:var(--accent)}
+
+  /* Abas no celular: mostra só o painel ativo */
+  @media (max-width:1023px){ .panel:not(.active){display:none} }
+  .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 0 6px;font-size:10px;font-weight:500;color:var(--muted)}
+  .tab.on{color:var(--accent)}
+
+  dialog{background:transparent;padding:0;max-width:none;max-height:none;width:100%;height:100%;border:0;color:var(--text)}
+  dialog::backdrop{background:rgba(0,0,0,.35);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+  .sheet{background:var(--card-solid);border-radius:20px 20px 0 0;width:100%;max-height:92dvh;overflow:auto;position:absolute;bottom:0;left:0;right:0;
+         padding:8px 18px calc(24px + env(safe-area-inset-bottom))}
+  @media (min-width:640px){ .sheet{border-radius:20px;width:520px;left:50%;top:50%;bottom:auto;transform:translate(-50%,-50%)} }
+  .grabber{width:36px;height:5px;border-radius:9px;background:var(--line);margin:4px auto 10px}
+
+  #toast{position:fixed;left:50%;transform:translateX(-50%) translateY(20px);bottom:calc(96px + env(safe-area-inset-bottom));opacity:0;
+         transition:all .25s;z-index:100;pointer-events:none;max-width:90vw}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  @media (min-width:1024px){ #toast{bottom:28px} }
+  .spin{animation:spin 1s linear infinite} @keyframes spin{to{transform:rotate(360deg)}}
+  .skeleton{background:linear-gradient(90deg,var(--fill),transparent,var(--fill));background-size:200% 100%;animation:sk 1.2s infinite;border-radius:8px}
+  @keyframes sk{to{background-position:-200% 0}}
+  .scroll-x{overflow-x:auto;scrollbar-width:none}.scroll-x::-webkit-scrollbar{display:none}
+  a{color:inherit}
+</style>
+</head>
+
+<body class="antialiased font-sans">
+<div class="blobs"></div>
+
+<!-- ===== Cabeçalho ===== -->
+<header class="sticky top-0 z-30 glass border-b hairline" style="padding-top:env(safe-area-inset-top)">
+  <div class="max-w-7xl mx-auto px-4 lg:px-6 h-14 flex items-center gap-2">
+    <div class="flex-1 min-w-0">
+      <div id="hdrDate" class="text-[11px] uppercase tracking-wide muted truncate"></div>
+      <h1 id="hdrGreet" class="text-lg font-semibold leading-tight truncate">Olá</h1>
+    </div>
+    <span id="netPill" class="pill">●</span>
+    <button id="btnAuth" class="pill accent hidden">Conectar</button>
+    <button id="btnSync" class="icon-btn" title="Sincronizar tudo" aria-label="Sincronizar">
+      <svg id="syncIco" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+    </button>
+    <button id="btnSettings" class="icon-btn hidden lg:inline-grid" title="Ajustes" aria-label="Ajustes">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    </button>
+  </div>
+</header>
+
+<main class="max-w-7xl mx-auto px-4 lg:px-6 pt-4 grid grid-cols-1 gap-4 lg:grid-cols-12 items-start"
+      style="padding-bottom:calc(96px + env(safe-area-inset-bottom))">
+
+  <!-- ===== AGENDA ===== -->
+  <section data-panel="agenda" class="panel active min-w-0 lg:col-span-5 space-y-4">
+    <div id="connectCard" class="card p-4 hidden">
+      <div class="font-semibold">Conecte sua conta Google</div>
+      <p class="text-sm muted mt-1">Para sincronizar Agenda, Gmail e backup no Drive. Seus dados locais continuam funcionando offline.</p>
+      <div class="mt-3 flex gap-2"><button class="btn btn-primary" data-action="connect">Conectar Google</button><button class="btn" data-action="settings">Ajustes</button></div>
+    </div>
+
+    <div class="card p-3">
+      <div class="flex items-center justify-between px-1 mb-1">
+        <button class="icon-btn" data-action="prevWeek" aria-label="Semana anterior">‹</button>
+        <button id="weekLabel" class="font-semibold" data-action="today" title="Voltar para hoje"></button>
+        <button class="icon-btn" data-action="nextWeek" aria-label="Próxima semana">›</button>
+      </div>
+      <div id="weekStrip" class="flex gap-1"></div>
+    </div>
+
+    <div class="card p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 id="dayTitle" class="text-xl font-bold first-letter:uppercase">Hoje</h2>
+        <button class="btn btn-primary" data-action="newEvent">＋ Evento</button>
+      </div>
+      <div id="eventList" class="space-y-2"></div>
+    </div>
+
+    <div class="card p-4">
+      <div class="flex items-center justify-between mb-2"><span class="h-sec">Tarefas</span><span id="taskCount" class="pill"></span></div>
+      <form id="taskForm" class="flex gap-2 mb-1">
+        <input id="taskInput" class="input" placeholder="Nova tarefa… (Enter)" autocomplete="off">
+        <button class="btn btn-primary" aria-label="Adicionar">＋</button>
+      </form>
+      <div id="taskList"></div>
+      <button id="clearDone" class="text-xs muted mt-2 hidden">Limpar concluídas</button>
+    </div>
+
+    <div class="card p-4">
+      <div class="h-sec mb-2">Notas rápidas</div>
+      <textarea id="notes" class="input" rows="4" placeholder="Anotações do dia, lembretes, números de protocolo…"></textarea>
+      <div id="notesSaved" class="text-[11px] muted mt-1"></div>
+    </div>
+  </section>
+
+  <!-- ===== E-MAILS ===== -->
+  <section data-panel="mail" class="panel min-w-0 lg:col-span-3">
+    <div class="card p-4">
+      <div class="flex items-center justify-between mb-2">
+        <div><div class="h-sec">Gmail</div><div id="mailMeta" class="text-[11px] muted"></div></div>
+        <div class="flex gap-2">
+          <button class="icon-btn" data-action="loadMail" aria-label="Atualizar e-mails">⟳</button>
+          <button class="pill accent" data-action="openGmailApp">Abrir Gmail</button>
+        </div>
+      </div>
+      <div class="flex gap-2 mb-2">
+        <button class="chip on" data-mailq="unread">Não lidos</button>
+        <button class="chip" data-mailq="important">Importantes</button>
+      </div>
+      <div id="mailList"></div>
+    </div>
+  </section>
+
+  <!-- ===== NOTÍCIAS ===== -->
+  <section data-panel="news" class="panel min-w-0 lg:col-span-4">
+    <div class="card p-4">
+      <div class="flex items-center justify-between mb-2">
+        <div><div class="h-sec">Notícias</div><div id="newsMeta" class="text-[11px] muted"></div></div>
+        <button class="icon-btn" data-action="refreshNews" aria-label="Atualizar notícias">⟳</button>
+      </div>
+      <div id="newsChips" class="flex gap-2 scroll-x mb-2 -mx-1 px-1"></div>
+      <div id="newsList"></div>
+    </div>
+  </section>
+</main>
+
+<!-- ===== Barra de abas (iPhone) ===== -->
+<nav class="lg:hidden fixed bottom-0 inset-x-0 z-30 glass border-t hairline flex" style="padding-bottom:env(safe-area-inset-bottom)">
+  <button class="tab on" data-tab="agenda"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Agenda</button>
+  <button class="tab" data-tab="mail"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 7 8 6 8-6"/></svg>E-mails<span id="mailBadge"></span></button>
+  <button class="tab" data-tab="news"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M7 8h10M7 12h10M7 16h6"/></svg>Notícias</button>
+  <button class="tab" data-tab="settings"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>Ajustes</button>
+</nav>
+
+<!-- ===== Modal: Novo evento ===== -->
+<dialog id="dlgEvent">
+  <form id="eventForm" class="sheet" method="dialog">
+    <div class="grabber"></div>
+    <div class="flex items-center justify-between mb-1">
+      <button type="button" class="text-[15px] accent" data-close>Cancelar</button>
+      <div class="font-semibold">Novo evento</div>
+      <button class="text-[15px] font-semibold accent" type="submit">Adicionar</button>
+    </div>
+    <label class="lbl">Título</label><input id="evTitle" class="input" required placeholder="Reunião com cliente">
+    <div class="grid grid-cols-3 gap-2">
+      <div><label class="lbl">Data</label><input id="evDate" type="date" class="input" required></div>
+      <div><label class="lbl">Início</label><input id="evStart" type="time" class="input"></div>
+      <div><label class="lbl">Fim</label><input id="evEnd" type="time" class="input"></div>
+    </div>
+    <label class="flex items-center gap-2 mt-3 text-sm"><input id="evAllDay" type="checkbox"> Dia inteiro</label>
+    <label class="lbl">Local</label><input id="evLoc" class="input" placeholder="Escritório / endereço / link">
+    <label class="lbl">Descrição</label><textarea id="evDesc" class="input" rows="3"></textarea>
+    <p class="text-xs muted mt-3">O evento vai direto para o seu Google Agenda (agenda principal), com lembrete de <span class="alertMinTxt">15</span> min. Sem internet, ele fica na fila e é enviado na próxima sincronização.</p>
+  </form>
+</dialog>
+
+<!-- ===== Modal: Ajustes ===== -->
+<dialog id="dlgSettings">
+  <form id="settingsForm" class="sheet" method="dialog">
+    <div class="grabber"></div>
+    <div class="flex items-center justify-between mb-1">
+      <button type="button" class="text-[15px] accent" data-close>Fechar</button>
+      <div class="font-semibold">Ajustes</div>
+      <button class="text-[15px] font-semibold accent" type="submit">Salvar</button>
+    </div>
+
+    <div class="h-sec mt-4">Perfil</div>
+    <label class="lbl">Seu nome (saudação)</label><input id="sName" class="input" placeholder="Seu nome">
+
+    <div class="h-sec mt-5">Google Cloud</div>
+    <label class="lbl">CLIENT_ID (OAuth 2.0 — Aplicativo da Web)</label>
+    <input id="sClientId" class="input" placeholder="1234567890-abc.apps.googleusercontent.com" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <label class="lbl">API_KEY (opcional)</label>
+    <input id="sApiKey" class="input" placeholder="AIza… (deixe em branco se não usar)" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <label class="lbl">Pasta do backup no Google Drive</label>
+    <input id="sFolder" class="input" placeholder="AgendaHub">
+    <p class="text-xs muted mt-2">URI de redirecionamento a cadastrar no Google: <code id="redirectUriTxt" class="accent break-all"></code></p>
+    <div id="authState" class="text-xs mt-2"></div>
+    <div class="flex flex-wrap gap-2 mt-3">
+      <button type="button" class="btn btn-primary" data-action="connect">Conectar Google</button>
+      <button type="button" class="btn btn-danger" data-action="disconnect">Desconectar</button>
+    </div>
+
+    <div class="h-sec mt-6">Backup (Google Drive)</div>
+    <label class="flex items-center gap-2 mt-2 text-sm"><input id="sAutoBackup" type="checkbox"> Backup automático a cada alteração</label>
+    <div id="backupState" class="text-xs muted mt-1"></div>
+    <div class="flex flex-wrap gap-2 mt-3">
+      <button type="button" class="btn" data-action="backup">Fazer backup agora</button>
+      <button type="button" class="btn" data-action="restore">Restaurar do Drive</button>
+      <button type="button" class="btn" data-action="exportLocal">Exportar JSON</button>
+      <label class="btn cursor-pointer">Importar JSON<input id="importFile" type="file" accept="application/json,.json" class="hidden"></label>
+    </div>
+
+    <div class="h-sec mt-6">Alertas</div>
+    <label class="lbl">Avisar quantos minutos antes</label>
+    <input id="sAlertMin" type="number" min="1" max="240" class="input" value="15">
+    <div id="notifState" class="text-xs muted mt-2"></div>
+    <div class="flex flex-wrap gap-2 mt-3">
+      <button type="button" class="btn" data-action="enableNotif">Ativar notificações</button>
+      <button type="button" class="btn" data-action="testAlert">Enviar alerta de teste</button>
+    </div>
+
+    <label class="lbl mt-4">ntfy.sh — servidor</label>
+    <input id="sNtfyServer" class="input" placeholder="https://ntfy.sh" autocapitalize="off">
+    <label class="lbl">ntfy.sh — tópico (use um nome longo e difícil de adivinhar)</label>
+    <input id="sNtfyTopic" class="input" placeholder="paulo-agenda-7f3k9q2x" autocapitalize="off" spellcheck="false">
+    <p class="text-xs muted mt-1">Com o ntfy, os lembretes são agendados no servidor (até 3 dias à frente) e chegam no iPhone mesmo com o app fechado.</p>
+
+    <label class="lbl mt-3">Telegram — token do bot (opcional)</label>
+    <input id="sTgToken" class="input" placeholder="123456:ABC-DEF…" autocapitalize="off" spellcheck="false">
+    <label class="lbl">Telegram — chat_id</label>
+    <input id="sTgChat" class="input" placeholder="123456789" autocapitalize="off">
+
+    <p class="text-[11px] muted mt-6">Agenda Hub · dados guardados neste aparelho (LocalStorage) e, se conectado, no seu Google Drive.</p>
+  </form>
+</dialog>
+
+<div id="toast" class="card px-4 py-2 text-sm font-medium"></div>
+
+<script>
+'use strict';
+/* =========================================================================
+   AGENDA HUB — PWA (HTML + Tailwind + JS puro)
+   Integrações: Google Calendar, Drive, Gmail (OAuth 2.0 via Google Identity
+   Services no PC e fluxo de redirecionamento no iPhone instalado), RSS via
+   rss2json, alertas locais + ntfy.sh + Telegram.
+   ========================================================================= */
+
+// ---------- Utilitários ----------
+const $  = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const LS = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { console.warn('LocalStorage cheio?', e); } },
+  del(k) { try { localStorage.removeItem(k); } catch {} }
+};
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const decodeHtml = (s) => { const t = document.createElement('textarea'); t.innerHTML = s || ''; return t.value; };
+const stripTags = (s) => decodeHtml(String(s || '').replace(/<[^>]*>/g, ' ')).replace(/\s+/g, ' ').trim();
+const pad = (n) => String(n).padStart(2, '0');
+const startOfDay = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const weekStart = (d) => { const x = startOfDay(d); return addDays(x, -((x.getDay() + 6) % 7)); }; // segunda-feira
+const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const sameDay = (a, b) => ymd(new Date(a)) === ymd(new Date(b));
+const parseG = (s) => (/^\d{4}-\d{2}-\d{2}$/.test(s) ? new Date(s + 'T00:00:00') : new Date(s));
+const fmtTime = (d) => new Date(d).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Fortaleza';
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const isStandalone = () => window.navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
+function relTime(ts) {
+  const diff = (Date.now() - ts) / 60000;
+  if (diff < 1) return 'agora';
+  if (diff < 60) return `há ${Math.round(diff)} min`;
+  if (diff < 1440) return `há ${Math.round(diff / 60)} h`;
+  const d = Math.round(diff / 1440); return d === 1 ? 'ontem' : `há ${d} dias`;
+}
+function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+let toastTimer;
+function toast(msg, ms = 2600) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), ms);
+}
+
+// ---------- Estado ----------
+const SCOPES = [
+  'https://www.googleapis.com/auth/calendar.events',
+  'https://www.googleapis.com/auth/drive.file',
+  'https://www.googleapis.com/auth/gmail.readonly'
+].join(' ');
+const BACKUP_FILE = 'agenda_hub_backup.json';
+const DEFAULT_CFG = {
+  name: '', clientId: '', apiKey: '', folderName: 'AgendaHub', autoBackup: true,
+  alertMin: 15, ntfyServer: 'https://ntfy.sh', ntfyTopic: '', tgToken: '', tgChat: ''
+};
+let cfg  = Object.assign({}, DEFAULT_CFG, LS.get('hub.cfg', {}));
+let data = Object.assign({ tasks: [], notes: '', pending: [], updatedAt: 0 }, LS.get('hub.data', {}));
+let auth = LS.get('hub.auth', null);                 // { token, exp }
+let events = LS.get('hub.events', []);               // cache da semana exibida
+let upcoming = LS.get('hub.upcoming', []);           // próximos 3 dias (alertas)
+let mail = LS.get('hub.mail', { items: [], at: 0, q: 'unread' });
+let meta = Object.assign({ lastBackup: 0, lastSync: 0, folderId: '' }, LS.get('hub.meta', {}));
+let notified = LS.get('hub.notified', {});
+let ntfySched = LS.get('hub.ntfy', {});
+let selDay = startOfDay(new Date());
+let newsCat = LS.get('hub.newsCat', 'contabil');
+let dirty = false;
+
+const saveMeta = () => LS.set('hub.meta', meta);
+function saveData({ silent = false } = {}) {
+  data.updatedAt = Date.now();
+  LS.set('hub.data', data);
+  dirty = true;
+  if (!silent) autoBackupSoon();
+}
+
+// ---------- Autenticação Google (OAuth 2.0) ----------
+const tokenValid = () => !!(auth && auth.token && auth.exp > Date.now() + 60_000);
+const redirectUri = () => location.origin + location.pathname.replace(/index\.html$/, '');
+
+function setToken(token, expiresIn) {
+  auth = { token, exp: Date.now() + (Number(expiresIn) || 3600) * 1000 };
+  LS.set('hub.auth', auth);
+  updateAuthUI();
+  toast('Conta Google conectada ✓');
+  syncAll();
+}
+
+function connectGoogle() {
+  if (!cfg.clientId) { toast('Cole seu CLIENT_ID em Ajustes primeiro'); openSettings(); return; }
+  // No PC (navegador comum) usa o popup do Google Identity Services.
+  // No iPhone instalado (standalone), popups não voltam para o app — usa redirecionamento.
+  if (!isStandalone() && window.google?.accounts?.oauth2) {
+    const client = google.accounts.oauth2.initTokenClient({
+      client_id: cfg.clientId,
+      scope: SCOPES,
+      callback: (r) => { if (r.error) return toast('Erro no login: ' + r.error); setToken(r.access_token, r.expires_in); },
+      error_callback: (e) => toast('Login não concluído (' + (e?.type || 'cancelado') + ')')
+    });
+    client.requestAccessToken({ prompt: LS.get('hub.consented', false) ? '' : 'consent' });
+    LS.set('hub.consented', true);
+  } else {
+    const state = uid();
+    LS.set('hub.oauthState', state);
+    const p = new URLSearchParams({
+      client_id: cfg.clientId, redirect_uri: redirectUri(), response_type: 'token',
+      scope: SCOPES, include_granted_scopes: 'true', state
+    });
+    location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + p.toString();
+  }
+}
+
+function handleOAuthRedirect() {
+  if (!location.hash) return;
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (h.get('error')) { toast('Login Google: ' + h.get('error')); history.replaceState(null, '', redirectUri()); return; }
+  if (!h.get('access_token')) return;
+  const ok = h.get('state') && h.get('state') === LS.get('hub.oauthState');
+  history.replaceState(null, '', redirectUri());
+  LS.del('hub.oauthState');
+  if (!ok) { toast('Resposta de login inválida (state)'); return; }
+  setToken(h.get('access_token'), h.get('expires_in'));
+}
+
+function disconnectGoogle() {
+  if (auth?.token && window.google?.accounts?.oauth2) google.accounts.oauth2.revoke(auth.token, () => {});
+  auth = null; LS.del('hub.auth'); LS.set('hub.consented', false);
+  updateAuthUI(); toast('Conta Google desconectada');
+}
+
+function updateAuthUI() {
+  const ok = tokenValid();
+  $('#connectCard').classList.toggle('hidden', ok);
+  $('#btnAuth').classList.toggle('hidden', ok);
+  $('#authState').innerHTML = ok
+    ? `<span style="color:var(--green)">● Conectado</span> <span class="muted">— sessão válida até ${fmtTime(auth.exp)}</span>`
+    : `<span style="color:var(--orange)">● Não conectado</span> <span class="muted">(o Google libera sessões de 1 hora; é só tocar em Conectar de novo)</span>`;
+}
+
+async function gfetch(url, opts = {}) {
+  if (!tokenValid()) { updateAuthUI(); throw new Error('AUTH'); }
+  const u = new URL(url);
+  if (cfg.apiKey) u.searchParams.set('key', cfg.apiKey);
+  const res = await fetch(u, { ...opts, headers: { Authorization: 'Bearer ' + auth.token, ...(opts.headers || {}) } });
+  if (res.status === 401) { auth = null; LS.del('hub.auth'); updateAuthUI(); throw new Error('AUTH'); }
+  if (!res.ok) throw new Error(`Google ${res.status}: ${(await res.text()).slice(0, 180)}`);
+  if (res.status === 204) return null;
+  const txt = await res.text();
+  return txt ? JSON.parse(txt) : null;
+}
+
+// ---------- Google Calendar ----------
+const CAL = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
+const mapEvent = (e) => ({
+  id: e.id, title: e.summary || '(sem título)',
+  start: e.start?.dateTime || e.start?.date, end: e.end?.dateTime || e.end?.date,
+  allDay: !e.start?.dateTime, location: e.location || '', link: e.htmlLink || '', meet: e.hangoutLink || ''
+});
+
+async function fetchEvents(from, to) {
+  const q = new URLSearchParams({ timeMin: from.toISOString(), timeMax: to.toISOString(), singleEvents: 'true', orderBy: 'startTime', maxResults: '250' });
+  const r = await gfetch(`${CAL}?${q}`);
+  return (r.items || []).filter((e) => e.status !== 'cancelled').map(mapEvent);
+}
+
+async function loadEvents() {
+  const from = weekStart(selDay);
+  events = await fetchEvents(from, addDays(from, 7));
+  LS.set('hub.events', events);
+  LS.set('hub.eventsWeek', ymd(from));
+  renderAgenda();
+}
+
+async function loadUpcoming() {
+  const now = new Date();
+  upcoming = await fetchEvents(new Date(now.getTime() - 3600_000), addDays(now, 3));
+  LS.set('hub.upcoming', upcoming);
+  checkAlerts();
+  scheduleNtfy();
+}
+
+function eventBody(f) {
+  const body = { summary: f.title, location: f.location || undefined, description: f.description || undefined,
+    reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: Number(cfg.alertMin) || 15 }] } };
+  if (f.allDay) {
+    body.start = { date: f.date };
+    body.end = { date: ymd(addDays(parseG(f.date), 1)) };
+  } else {
+    body.start = { dateTime: `${f.date}T${f.start}:00`, timeZone: TZ };
+    body.end = { dateTime: `${f.date}T${f.end}:00`, timeZone: TZ };
+  }
+  return body;
+}
+
+async function createEvent(f) {
+  const body = eventBody(f);
+  if (!navigator.onLine || !tokenValid()) {
+    data.pending.push({ id: 'pending-' + uid(), body });
+    saveData();
+    renderAgenda();
+    toast(navigator.onLine ? 'Evento na fila — conecte o Google para enviar' : 'Sem internet: evento na fila ⏳');
+    return;
+  }
+  await gfetch(CAL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  toast('Evento criado no Google Agenda ✓');
+  await Promise.allSettled([loadEvents(), loadUpcoming()]);
+}
+
+async function flushPending() {
+  if (!data.pending.length || !tokenValid() || !navigator.onLine) return;
+  const left = [];
+  for (const p of data.pending) {
+    try { await gfetch(CAL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p.body) }); }
+    catch (e) { left.push(p); }
+  }
+  const sent = data.pending.length - left.length;
+  data.pending = left; saveData();
+  if (sent) toast(`${sent} evento(s) da fila enviados ✓`);
+}
+
+async function deleteEvent(id) {
+  if (id.startsWith('pending-')) {
+    data.pending = data.pending.filter((p) => p.id !== id); saveData(); renderAgenda(); return;
+  }
+  if (!confirm('Excluir este evento do Google Agenda?')) return;
+  try {
+    await gfetch(`${CAL}/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    events = events.filter((e) => e.id !== id); LS.set('hub.events', events); renderAgenda();
+    toast('Evento excluído');
+    loadUpcoming().catch(() => {});
+  } catch (e) { handleErr(e, 'excluir evento'); }
+}
+
+// ---------- Gmail ----------
+const MAIL_Q = { unread: 'is:unread in:inbox', important: 'is:important in:inbox newer_than:7d' };
+
+async function loadMail() {
+  if (!tokenValid()) { renderMail(); return; }
+  $('#mailList').innerHTML = skeleton(4);
+  const list = await gfetch('https://gmail.googleapis.com/gmail/v1/users/me/messages?' +
+    new URLSearchParams({ q: MAIL_Q[mail.q] || MAIL_Q.unread, maxResults: '10' }));
+  const ids = (list.messages || []).map((m) => m.id);
+  const fields = 'metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date';
+  const msgs = await Promise.all(ids.map((id) =>
+    gfetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}?format=metadata&${fields}`).catch(() => null)));
+  mail.items = msgs.filter(Boolean).map((m) => {
+    const H = Object.fromEntries((m.payload?.headers || []).map((h) => [h.name.toLowerCase(), h.value]));
+    const from = H.from || '';
+    const name = (from.match(/^"?([^"<]+)"?\s*</) || [])[1] || from.replace(/<.*>/, '') || from;
+    return { id: m.id, threadId: m.threadId, from: name.trim(), subject: H.subject || '(sem assunto)',
+      snippet: decodeHtml(m.snippet || ''), ts: Number(m.internalDate) || Date.now(), unread: (m.labelIds || []).includes('UNREAD') };
+  });
+  mail.total = list.resultSizeEstimate || mail.items.length;
+  mail.at = Date.now();
+  LS.set('hub.mail', mail);
+  renderMail();
+}
+
+function openGmailApp() {
+  if (isIOS()) {
+    const t = Date.now();
+    location.href = 'googlegmail://';
+    setTimeout(() => { if (Date.now() - t < 2000 && document.visibilityState === 'visible') window.open('https://mail.google.com/mail/u/0/#inbox', '_blank'); }, 1200);
+  } else window.open('https://mail.google.com/mail/u/0/#inbox', '_blank');
+}
+
+// ---------- Google Drive (backup) ----------
+const DRIVE = 'https://www.googleapis.com/drive/v3/files';
+const DRIVE_UP = 'https://www.googleapis.com/upload/drive/v3/files';
+const qEsc = (s) => String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
+async function driveFolderId() {
+  const name = cfg.folderName || 'AgendaHub';
+  if (meta.folderId && meta.folderName === name) return meta.folderId;
+  const q = `mimeType='application/vnd.google-apps.folder' and name='${qEsc(name)}' and trashed=false`;
+  const r = await gfetch(`${DRIVE}?` + new URLSearchParams({ q, fields: 'files(id,name)', spaces: 'drive' }));
+  let id = r.files?.[0]?.id;
+  if (!id) {
+    const c = await gfetch(DRIVE, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder' }) });
+    id = c.id;
+  }
+  meta.folderId = id; meta.folderName = name; saveMeta();
+  return id;
+}
+
+async function driveFindBackup(folderId) {
+  const q = `name='${BACKUP_FILE}' and '${folderId}' in parents and trashed=false`;
+  const r = await gfetch(`${DRIVE}?` + new URLSearchParams({ q, fields: 'files(id,modifiedTime)', orderBy: 'modifiedTime desc' }));
+  return r.files?.[0] || null;
+}
+
+const backupPayload = () => JSON.stringify({ app: 'agenda-hub', version: 1, exportedAt: new Date().toISOString(),
+  data, cfg: { ...cfg, clientId: cfg.clientId } }, null, 2);
+
+async function backupNow({ silent = false } = {}) {
+  try {
+    if (!tokenValid()) { if (!silent) toast('Conecte o Google para fazer backup'); return; }
+    const folderId = await driveFolderId();
+    const existing = await driveFindBackup(folderId);
+    const payload = backupPayload();
+    if (existing) {
+      await gfetch(`${DRIVE_UP}/${existing.id}?uploadType=media`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: payload });
+    } else {
+      const b = 'hub' + uid();
+      const metaJson = JSON.stringify({ name: BACKUP_FILE, parents: [folderId], mimeType: 'application/json' });
+      const body = `--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metaJson}\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${payload}\r\n--${b}--`;
+      await gfetch(`${DRIVE_UP}?uploadType=multipart`, { method: 'POST', headers: { 'Content-Type': 'multipart/related; boundary=' + b }, body });
+    }
+    meta.lastBackup = Date.now(); saveMeta(); dirty = false;
+    renderBackupState();
+    if (!silent) toast('Backup salvo no Google Drive ✓');
+  } catch (e) {
+    if (e.message === 'AUTH' && meta.folderId) { meta.folderId = ''; saveMeta(); }
+    if (!silent) handleErr(e, 'backup');
+  }
+}
+const autoBackupSoon = debounce(() => { if (cfg.autoBackup && tokenValid() && navigator.onLine) backupNow({ silent: true }); }, 15000);
+
+function applyBackup(obj) {
+  if (!obj || obj.app !== 'agenda-hub' || !obj.data) throw new Error('Arquivo de backup inválido');
+  const keepClient = cfg.clientId;
+  data = Object.assign({ tasks: [], notes: '', pending: [], updatedAt: 0 }, obj.data);
+  cfg = Object.assign({}, DEFAULT_CFG, obj.cfg || {}, { clientId: keepClient || obj.cfg?.clientId || '' });
+  LS.set('hub.data', data); LS.set('hub.cfg', cfg);
+  renderAll();
+}
+
+async function restoreFromDrive({ auto = false } = {}) {
+  try {
+    if (!tokenValid()) { if (!auto) toast('Conecte o Google primeiro'); return false; }
+    const folderId = await driveFolderId();
+    const f = await driveFindBackup(folderId);
+    if (!f) { if (!auto) toast('Nenhum backup encontrado no Drive'); return false; }
+    const remote = await gfetch(`${DRIVE}/${f.id}?alt=media`);
+    const remoteAt = remote?.data?.updatedAt || 0;
+    if (auto && remoteAt <= (data.updatedAt || 0)) return false;   // local já está mais novo
+    if (!auto && !confirm(`Restaurar backup de ${new Date(f.modifiedTime).toLocaleString('pt-BR')}? Os dados locais serão substituídos.`)) return false;
+    applyBackup(remote);
+    toast(auto ? 'Dados atualizados a partir do Drive ☁️' : 'Backup restaurado ✓');
+    return true;
+  } catch (e) { if (!auto) handleErr(e, 'restaurar'); return false; }
+}
+
+function exportLocal() {
+  const blob = new Blob([backupPayload()], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = BACKUP_FILE; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+// ---------- Notificações e alertas ----------
+async function enableNotifications() {
+  if (!('Notification' in window)) {
+    toast(isIOS() && !isStandalone()
+      ? 'No iPhone: primeiro adicione o app à Tela de Início e abra por lá (iOS 16.4+)'
+      : 'Este navegador não suporta notificações', 4500);
+    return;
+  }
+  const p = await Notification.requestPermission();
+  renderNotifState();
+  if (p === 'granted') notify('Notificações ativadas ✓', `Você será avisado ${cfg.alertMin} min antes dos compromissos.`, 'hub-test');
+  else toast('Permissão de notificação negada');
+}
+
+async function notify(title, body, tag, url) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration();
+    if (reg) await reg.showNotification(title, { body, tag, icon: 'icon-192.png', badge: 'icon-192.png', data: { url: url || './' } });
+    else new Notification(title, { body, tag });
+  } catch (e) { console.warn(e); }
+}
+
+async function sendTelegram(text) {
+  if (!cfg.tgToken || !cfg.tgChat) return;
+  try {
+    // corpo form-urlencoded = requisição "simples" (sem preflight CORS)
+    await fetch(`https://api.telegram.org/bot${cfg.tgToken}/sendMessage`, {
+      method: 'POST', body: new URLSearchParams({ chat_id: cfg.tgChat, text })
+    });
+  } catch (e) { console.warn('Telegram', e); }
+}
+
+async function ntfyPublish(msg) {
+  if (!cfg.ntfyTopic) return false;
+  const server = (cfg.ntfyServer || 'https://ntfy.sh').replace(/\/+$/, '');
+  // JSON enviado como text/plain para a raiz do servidor (sem preflight CORS)
+  const res = await fetch(server + '/', { method: 'POST', body: JSON.stringify({ topic: cfg.ntfyTopic, ...msg }) });
+  return res.ok;
+}
+
+const evKey = (ev) => ev.id + '|' + ev.start;
+
+function checkAlerts() {
+  const now = Date.now(), win = (Number(cfg.alertMin) || 15) * 60000;
+  for (const ev of upcoming) {
+    if (ev.allDay) continue;
+    const t = parseG(ev.start).getTime();
+    const k = evKey(ev);
+    if (t - now <= win && t > now - 60000 && !notified[k]) {
+      notified[k] = now;
+      const mins = Math.max(0, Math.round((t - now) / 60000));
+      const body = `${fmtTime(ev.start)}${ev.location ? ' · ' + ev.location : ''}`;
+      notify(`⏰ Em ${mins} min: ${ev.title}`, body, 'ev-' + ev.id, ev.link);
+      sendTelegram(`⏰ Em ${mins} min: ${ev.title}\n${body}`);
+    }
+  }
+  for (const k in notified) if (now - notified[k] > 2 * 86400000) delete notified[k];
+  LS.set('hub.notified', notified);
+}
+
+// Agenda os lembretes no servidor ntfy (chegam mesmo com o app fechado)
+async function scheduleNtfy() {
+  if (!cfg.ntfyTopic || !navigator.onLine) return;
+  const now = Date.now(), lead = (Number(cfg.alertMin) || 15) * 60000, maxAhead = 3 * 86400000 - 120000;
+  for (const ev of upcoming) {
+    if (ev.allDay) continue;
+    const at = parseG(ev.start).getTime() - lead;
+    const k = evKey(ev);
+    if (ntfySched[k] || at < now + 60000 || at > now + maxAhead) continue;
+    try {
+      const ok = await ntfyPublish({
+        title: `⏰ Em ${cfg.alertMin} min: ${ev.title}`,
+        message: `${fmtTime(ev.start)}${ev.location ? ' · ' + ev.location : ''}`,
+        tags: ['calendar'], priority: 4, delay: String(Math.floor(at / 1000)),
+        click: ev.meet || ev.link || undefined
+      });
+      if (ok) ntfySched[k] = at;
+    } catch (e) { console.warn('ntfy', e); }
+  }
+  for (const k in ntfySched) if (ntfySched[k] < now - 86400000) delete ntfySched[k];
+  LS.set('hub.ntfy', ntfySched);
+}
+
+async function testAlert() {
+  await notify('🔔 Teste do Agenda Hub', 'Se você está vendo isto, as notificações locais funcionam.', 'hub-test');
+  let parts = [];
+  if (Notification?.permission === 'granted') parts.push('local');
+  if (cfg.ntfyTopic) { try { if (await ntfyPublish({ title: '🔔 Teste do Agenda Hub', message: 'ntfy configurado corretamente!', tags: ['white_check_mark'] })) parts.push('ntfy'); } catch {} }
+  if (cfg.tgToken && cfg.tgChat) { await sendTelegram('🔔 Teste do Agenda Hub — Telegram configurado!'); parts.push('Telegram'); }
+  toast(parts.length ? 'Teste enviado: ' + parts.join(', ') : 'Nenhum canal ativo — ative notificações ou configure ntfy/Telegram', 4000);
+}
+
+// ---------- Notícias (RSS via rss2json, com reserva) ----------
+const GN = (q) => `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=pt-BR&gl=BR&ceid=BR:pt-419`;
+const FEEDS = {
+  contabil: { label: 'Contabilidade & Tributário', icon: '📊', urls: [
+    GN('"reforma tributária" OR "Receita Federal" OR contabilidade OR "IBS" OR "CBS" when:3d'),
+    'https://www.contabeis.com.br/rss/noticias/',
+    GN('CFC contabilidade OR "obrigações acessórias" OR SPED when:7d') ] },
+  economia: { label: 'Economia & Mercado', icon: '📈', urls: [
+    'https://agenciabrasil.ebc.com.br/rss/economia/feed.xml',
+    'https://www.infomoney.com.br/feed/',
+    GN('Selic OR dólar OR Ibovespa OR inflação when:2d') ] },
+  tecnologia: { label: 'Tecnologia', icon: '💻', urls: [
+    'https://canaltech.com.br/rss/',
+    'https://rss.tecmundo.com.br/feed',
+    GN('tecnologia software OR startups when:2d') ] },
+  ia: { label: 'Inteligência Artificial', icon: '🤖', urls: [
+    GN('"inteligência artificial" OR ChatGPT OR Claude OR Gemini when:3d'),
+    'https://olhardigital.com.br/feed/' ] },
+  corinthians: { label: 'Corinthians', icon: '⚽', urls: [
+    GN('Corinthians when:2d'),
+    'https://ge.globo.com/rss/ge/futebol/times/corinthians/',
+    GN('Corinthians Timão jogo OR escalação OR contratação when:3d') ] }
+};
+
+function withTimeout(promise, ms) {
+  return Promise.race([promise, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+}
+
+async function viaRss2json(url) {
+  const r = await withTimeout(fetch('https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(url)), 9000);
+  const j = await r.json();
+  if (j.status !== 'ok') throw new Error(j.message || 'rss2json');
+  const src = j.feed?.title || '';
+  return (j.items || []).map((i) => ({
+    title: stripTags(i.title), link: i.link, source: i.author && i.author.length < 40 ? i.author : src,
+    ts: i.pubDate ? new Date(i.pubDate.replace(' ', 'T') + 'Z').getTime() : 0,
+    desc: stripTags(i.description).slice(0, 220), img: i.thumbnail || i.enclosure?.link || ''
+  }));
+}
+
+async function viaAllOrigins(url) {  // reserva: busca o XML bruto e interpreta no navegador
+  const r = await withTimeout(fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(url)), 9000);
+  const xml = new DOMParser().parseFromString(await r.text(), 'text/xml');
+  const src = xml.querySelector('channel > title')?.textContent || '';
+  return [...xml.querySelectorAll('item')].map((it) => ({
+    title: stripTags(it.querySelector('title')?.textContent), link: it.querySelector('link')?.textContent?.trim(),
+    source: it.querySelector('source')?.textContent || src, ts: Date.parse(it.querySelector('pubDate')?.textContent || '') || 0,
+    desc: stripTags(it.querySelector('description')?.textContent).slice(0, 220), img: ''
+  }));
+}
+
+async function fetchFeed(url) {
+  try { return await viaRss2json(url); } catch { return await viaAllOrigins(url); }
+}
+
+async function loadNews(cat = newsCat, force = false) {
+  const cacheKey = 'hub.news.' + cat;
+  const cached = LS.get(cacheKey, null);
+  if (cached && !force && Date.now() - cached.at < 20 * 60000) { renderNews(cached, cat); return; }
+  if (cached) renderNews(cached, cat, true); else $('#newsList').innerHTML = skeleton(6);
+  const results = await Promise.allSettled(FEEDS[cat].urls.map(fetchFeed));
+  let items = results.filter((r) => r.status === 'fulfilled').flatMap((r) => r.value);
+  if (!items.length) {
+    if (cat === newsCat) {
+      if (cached) { renderNews(cached, cat); $('#newsMeta').textContent = 'Sem conexão com os feeds — exibindo cache'; }
+      else $('#newsList').innerHTML = emptyState('📡', 'Não foi possível carregar os feeds agora.', '<button class="btn mt-3" data-action="refreshNews">Tentar novamente</button>');
+    }
+    return;
+  }
+  const seen = new Set();
+  items = items.filter((i) => {
+    const k = (i.title || '').toLowerCase().replace(/\s+-\s+[^-]+$/, '').slice(0, 70);
+    if (!i.title || !i.link || seen.has(k)) return false; seen.add(k); return true;
+  }).sort((a, b) => b.ts - a.ts).slice(0, 30);
+  const pack = { at: Date.now(), items };
+  LS.set(cacheKey, pack);
+  if (cat === newsCat) renderNews(pack, cat);
+}
+
+// ---------- Sincronização geral ----------
+let syncing = false;
+async function syncAll({ quiet = false } = {}) {
+  if (syncing) return;
+  if (!tokenValid()) { updateAuthUI(); if (!quiet) toast('Conecte sua conta Google para sincronizar'); loadNews(newsCat, !quiet); return; }
+  syncing = true; $('#syncIco').classList.add('spin');
+  try {
+    await restoreFromDrive({ auto: true });
+    await flushPending();
+    const r = await Promise.allSettled([loadEvents(), loadUpcoming(), loadMail(), loadNews(newsCat, !quiet)]);
+    const fail = r.find((x) => x.status === 'rejected');
+    if (fail) handleErr(fail.reason, 'sincronizar');
+    if (dirty && cfg.autoBackup) await backupNow({ silent: true });
+    meta.lastSync = Date.now(); saveMeta();
+    if (!quiet && !fail) toast('Tudo sincronizado ✓');
+  } finally { syncing = false; $('#syncIco').classList.remove('spin'); }
+}
+
+function handleErr(e, ctx) {
+  console.error(ctx, e);
+  if (e?.message === 'AUTH') { toast('Sessão Google expirada — toque em Conectar'); updateAuthUI(); return; }
+  toast(`Erro ao ${ctx}: ${String(e?.message || e).slice(0, 90)}`, 4500);
+}
+
+// ---------- Renderização ----------
+const skeleton = (n) => Array.from({ length: n }, () => '<div class="py-3"><div class="skeleton h-3 w-2/3 mb-2"></div><div class="skeleton h-3 w-full"></div></div>').join('');
+const emptyState = (ico, txt, extra = '') => `<div class="text-center py-8"><div class="text-3xl mb-2">${ico}</div><div class="text-sm muted">${txt}</div>${extra}</div>`;
+
+function renderHeader() {
+  const h = new Date().getHours();
+  const g = h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
+  $('#hdrGreet').textContent = cfg.name ? `${g}, ${cfg.name.split(' ')[0]}` : g;
+  $('#hdrDate').textContent = new Date().toLocaleDateString('pt-BR', { weekday: innerWidth < 640 ? 'short' : 'long', day: 'numeric', month: 'long' }).replace('.', '');
+  const on = navigator.onLine;
+  const p = $('#netPill');
+  p.textContent = on ? '● Online' : '● Offline';
+  p.style.color = on ? 'var(--green)' : 'var(--orange)';
+}
+
+function allEventsCached() {
+  const pend = data.pending.map((p) => ({
+    id: p.id, title: p.body.summary, start: p.body.start.dateTime || p.body.start.date,
+    end: p.body.end.dateTime || p.body.end.date, allDay: !!p.body.start.date, location: p.body.location || '', pending: true
+  }));
+  const map = new Map();
+  [...events, ...upcoming].forEach((e) => map.set(e.id, e));
+  return [...map.values(), ...pend];
+}
+function eventsOn(day) {
+  const ds = startOfDay(day).getTime(), de = addDays(startOfDay(day), 1).getTime();
+  return allEventsCached().filter((e) => {
+    const s = parseG(e.start).getTime(), en = parseG(e.end || e.start).getTime();
+    return s < de && Math.max(en, s + 1) > ds;
+  }).sort((a, b) => (b.allDay - a.allDay) || (parseG(a.start) - parseG(b.start)));
+}
+
+function renderWeek() {
+  const ws = weekStart(selDay), today = new Date();
+  const ml = selDay.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  $('#weekLabel').textContent = ml.charAt(0).toUpperCase() + ml.slice(1);
+  $('#weekStrip').innerHTML = Array.from({ length: 7 }, (_, i) => {
+    const d = addDays(ws, i), n = eventsOn(d).length;
+    return `<button class="day ${sameDay(d, selDay) ? 'sel' : ''} ${sameDay(d, today) ? 'today' : ''}" data-day="${ymd(d)}">
+      <span class="wd">${d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '').slice(0, 3)}</span>
+      <span class="dn">${d.getDate()}</span><span class="dot ${n ? '' : 'invisible'}"></span></button>`;
+  }).join('');
+}
+
+function renderEvents() {
+  const isToday = sameDay(selDay, new Date());
+  $('#dayTitle').textContent = isToday ? 'Hoje' : selDay.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'short' });
+  const list = eventsOn(selDay);
+  if (!list.length) {
+    $('#eventList').innerHTML = emptyState('🗓️', tokenValid() || events.length ? 'Nenhum compromisso neste dia.' : 'Conecte o Google para ver sua agenda.');
+    return;
+  }
+  const now = Date.now();
+  $('#eventList').innerHTML = list.map((ev) => {
+    const s = parseG(ev.start).getTime(), e = parseG(ev.end || ev.start).getTime();
+    const state = ev.allDay ? '' : now > e ? 'past' : now >= s ? 'now' : '';
+    const mins = Math.round((s - now) / 60000);
+    const badge = state === 'now' ? '<span class="pill" style="color:var(--green)">Agora</span>'
+      : !ev.allDay && mins > 0 && mins <= 120 ? `<span class="pill" style="color:var(--orange)">em ${mins} min</span>` : '';
+    const time = ev.allDay ? 'Dia inteiro' : `${fmtTime(ev.start)} – ${fmtTime(ev.end)}`;
+    return `<div class="ev ${state}">
+      <div class="bar"></div>
+      <div class="flex-1 min-w-0">
+        <div class="text-xs muted flex items-center gap-2">${time} ${badge} ${ev.pending ? '<span class="pill">⏳ na fila</span>' : ''}</div>
+        <div class="font-semibold mt-0.5 break-words">${esc(ev.title)}</div>
+        ${ev.location ? `<div class="text-xs muted mt-0.5 truncate">📍 ${esc(ev.location)}</div>` : ''}
+        <div class="flex gap-3 mt-1 text-xs font-semibold accent">
+          ${ev.meet ? `<a href="${esc(ev.meet)}" target="_blank" rel="noopener">Entrar no Meet</a>` : ''}
+          ${ev.link ? `<a href="${esc(ev.link)}" target="_blank" rel="noopener">Abrir no Google</a>` : ''}
+        </div>
+      </div>
+      <button class="muted text-lg leading-none px-1" data-del="${esc(ev.id)}" aria-label="Excluir">×</button>
+    </div>`;
+  }).join('');
+}
+
+function renderTasks() {
+  const open = data.tasks.filter((t) => !t.done).length;
+  $('#taskCount').textContent = `${open} pendente${open === 1 ? '' : 's'}`;
+  $('#clearDone').classList.toggle('hidden', !data.tasks.some((t) => t.done));
+  const sorted = [...data.tasks].sort((a, b) => a.done - b.done || b.created - a.created);
+  $('#taskList').innerHTML = sorted.length ? sorted.map((t) => `
+    <div class="row items-center">
+      <button class="check ${t.done ? 'on' : ''}" data-toggle="${t.id}" aria-label="Concluir">${t.done ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="4"><path d="M5 12l5 5L20 7"/></svg>' : ''}</button>
+      <div class="flex-1 text-[15px] ${t.done ? 'line-through muted' : ''} break-words">${esc(t.text)}</div>
+      <button class="muted px-1" data-deltask="${t.id}" aria-label="Remover">×</button>
+    </div>`).join('') : '<div class="text-sm muted py-3">Nenhuma tarefa. Aproveite! ☕</div>';
+}
+
+function renderAgenda() { renderWeek(); renderEvents(); }
+
+function renderMail() {
+  $$('[data-mailq]').forEach((b) => b.classList.toggle('on', b.dataset.mailq === mail.q));
+  const badge = $('#mailBadge');
+  const unread = mail.items.filter((m) => m.unread).length;
+  badge.textContent = unread ? ` (${unread})` : '';
+  $('#mailMeta').textContent = mail.at ? `Atualizado ${relTime(mail.at)}${mail.q === 'unread' && mail.total ? ` · ${mail.total} não lido(s)` : ''}` : '';
+  if (!tokenValid() && !mail.items.length) {
+    $('#mailList').innerHTML = emptyState('✉️', 'Conecte o Google para ver seus e-mails.', '<button class="btn btn-primary mt-3" data-action="connect">Conectar</button>');
+    return;
+  }
+  if (!mail.items.length) { $('#mailList').innerHTML = emptyState('🎉', 'Caixa de entrada em dia!'); return; }
+  $('#mailList').innerHTML = mail.items.map((m) => `
+    <a class="row block" href="https://mail.google.com/mail/u/0/#inbox/${esc(m.threadId)}" target="_blank" rel="noopener">
+      <div class="flex-1 min-w-0">
+        <div class="flex items-baseline gap-2">
+          ${m.unread ? '<span class="inline-block w-2 h-2 rounded-full flex-none" style="background:var(--accent)"></span>' : ''}
+          <span class="font-semibold truncate flex-1">${esc(m.from)}</span>
+          <span class="text-[11px] muted flex-none">${sameDay(m.ts, new Date()) ? fmtTime(m.ts) : new Date(m.ts).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>
+        </div>
+        <div class="text-sm truncate">${esc(m.subject)}</div>
+        <div class="text-xs muted clamp2">${esc(m.snippet)}</div>
+      </div>
+    </a>`).join('');
+}
+
+function renderNewsChips() {
+  $('#newsChips').innerHTML = Object.entries(FEEDS).map(([k, f]) =>
+    `<button class="chip ${k === newsCat ? 'on' : ''}" data-news="${k}">${f.icon} ${f.label}</button>`).join('');
+}
+
+function renderNews(pack, cat, loading = false) {
+  if (cat !== newsCat) return;
+  $('#newsMeta').textContent = loading ? 'Atualizando…' : `Atualizado ${relTime(pack.at)}`;
+  $('#newsList').innerHTML = pack.items.map((n) => `
+    <a class="row" href="${esc(n.link)}" target="_blank" rel="noopener">
+      <div class="flex-1 min-w-0">
+        <div class="text-[15px] font-semibold leading-snug clamp2">${esc(n.title)}</div>
+        ${n.desc && !n.link.includes('news.google') ? `<div class="text-xs muted clamp2 mt-0.5">${esc(n.desc)}</div>` : ''}
+        <div class="text-[11px] muted mt-1">${esc(n.source || '')}${n.ts ? ' · ' + relTime(n.ts) : ''}</div>
+      </div>
+      ${n.img ? `<img src="${esc(n.img)}" alt="" loading="lazy" class="w-16 h-16 rounded-xl object-cover flex-none" onerror="this.remove()">` : ''}
+    </a>`).join('') || emptyState('📰', 'Sem notícias nesta categoria.');
+}
+
+function renderBackupState() {
+  $('#backupState').textContent = meta.lastBackup
+    ? `Último backup: ${new Date(meta.lastBackup).toLocaleString('pt-BR')} — arquivo ${BACKUP_FILE} na pasta "${cfg.folderName}"`
+    : 'Nenhum backup feito ainda neste aparelho.';
+}
+function renderNotifState() {
+  const s = !('Notification' in window) ? (isIOS() && !isStandalone() ? 'indisponível fora do app instalado' : 'não suportado') : Notification.permission;
+  const map = { granted: '✅ permitidas', denied: '⛔ bloqueadas (libere em Ajustes do iPhone › Notificações)', default: 'ainda não ativadas' };
+  $('#notifState').textContent = 'Notificações deste aparelho: ' + (map[s] || s);
+}
+
+function renderAll() {
+  renderHeader(); renderAgenda(); renderTasks(); renderMail(); renderNewsChips();
+  $('#notes').value = data.notes || '';
+  updateAuthUI();
+}
+
+// ---------- Ajustes ----------
+function openSettings() {
+  $('#sName').value = cfg.name; $('#sClientId').value = cfg.clientId; $('#sApiKey').value = cfg.apiKey;
+  $('#sFolder').value = cfg.folderName; $('#sAutoBackup').checked = !!cfg.autoBackup; $('#sAlertMin').value = cfg.alertMin;
+  $('#sNtfyServer').value = cfg.ntfyServer; $('#sNtfyTopic').value = cfg.ntfyTopic;
+  $('#sTgToken').value = cfg.tgToken; $('#sTgChat').value = cfg.tgChat;
+  $('#redirectUriTxt').textContent = redirectUri();
+  updateAuthUI(); renderBackupState(); renderNotifState();
+  $('#dlgSettings').showModal();
+}
+function saveSettings() {
+  const prevFolder = cfg.folderName;
+  cfg = Object.assign(cfg, {
+    name: $('#sName').value.trim(), clientId: $('#sClientId').value.trim(), apiKey: $('#sApiKey').value.trim(),
+    folderName: $('#sFolder').value.trim() || 'AgendaHub', autoBackup: $('#sAutoBackup').checked,
+    alertMin: Math.min(240, Math.max(1, Number($('#sAlertMin').value) || 15)),
+    ntfyServer: $('#sNtfyServer').value.trim() || 'https://ntfy.sh', ntfyTopic: $('#sNtfyTopic').value.trim(),
+    tgToken: $('#sTgToken').value.trim(), tgChat: $('#sTgChat').value.trim()
+  });
+  if (cfg.folderName !== prevFolder) { meta.folderId = ''; saveMeta(); }
+  LS.set('hub.cfg', cfg);
+  $$('.alertMinTxt').forEach((e) => (e.textContent = cfg.alertMin));
+  renderHeader(); saveData();
+  scheduleNtfy();
+  toast('Ajustes salvos ✓');
+}
+
+// ---------- Eventos de interface ----------
+function openEventDialog() {
+  const d = new Date(); const base = sameDay(selDay, d) ? d : new Date(selDay.getTime() + 9 * 3600000);
+  const st = new Date(Math.ceil(base.getTime() / 1800000) * 1800000);
+  const en = new Date(st.getTime() + 3600000);
+  $('#evTitle').value = ''; $('#evLoc').value = ''; $('#evDesc').value = ''; $('#evAllDay').checked = false;
+  $('#evDate').value = ymd(selDay); $('#evStart').value = `${pad(st.getHours())}:${pad(st.getMinutes())}`;
+  $('#evEnd').value = `${pad(en.getHours())}:${pad(en.getMinutes())}`;
+  $('#dlgEvent').showModal(); setTimeout(() => $('#evTitle').focus(), 50);
+}
+
+function setTab(tab) {
+  if (tab === 'settings') { openSettings(); return; }
+  $$('.tab').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
+  $$('.panel').forEach((p) => p.classList.toggle('active', p.dataset.panel === tab));
+  window.scrollTo({ top: 0 });
+  if (tab === 'news' && !LS.get('hub.news.' + newsCat, null)) loadNews();
+}
+
+function changeDay(d) {
+  const oldWeek = ymd(weekStart(selDay));
+  selDay = startOfDay(d);
+  renderAgenda();
+  if (ymd(weekStart(selDay)) !== oldWeek && tokenValid()) loadEvents().catch((e) => handleErr(e, 'carregar agenda'));
+}
+
+const ACTIONS = {
+  connect: connectGoogle, disconnect: disconnectGoogle, settings: openSettings,
+  prevWeek: () => changeDay(addDays(selDay, -7)), nextWeek: () => changeDay(addDays(selDay, 7)), today: () => changeDay(new Date()),
+  newEvent: openEventDialog,
+  loadMail: () => loadMail().catch((e) => handleErr(e, 'carregar e-mails')),
+  openGmailApp,
+  refreshNews: () => loadNews(newsCat, true),
+  backup: () => backupNow(), restore: () => restoreFromDrive(), exportLocal,
+  enableNotif: enableNotifications, testAlert
+};
+
+document.addEventListener('click', (e) => {
+  const t = e.target.closest('[data-action],[data-day],[data-del],[data-toggle],[data-deltask],[data-tab],[data-news],[data-mailq],[data-close]');
+  if (!t) return;
+  const ds = t.dataset;
+  if (ds.action) { e.preventDefault(); ACTIONS[ds.action]?.(); }
+  else if (ds.day) changeDay(parseG(ds.day));
+  else if (ds.del) deleteEvent(ds.del);
+  else if (ds.toggle) { const k = data.tasks.find((x) => x.id === ds.toggle); if (k) { k.done = !k.done; saveData(); renderTasks(); } }
+  else if (ds.deltask) { data.tasks = data.tasks.filter((x) => x.id !== ds.deltask); saveData(); renderTasks(); }
+  else if (ds.tab) setTab(ds.tab);
+  else if (ds.news) { newsCat = ds.news; LS.set('hub.newsCat', newsCat); renderNewsChips(); loadNews(newsCat); }
+  else if (ds.mailq) { mail.q = ds.mailq; renderMail(); loadMail().catch((er) => handleErr(er, 'carregar e-mails')); }
+  else if (ds.close !== undefined) t.closest('dialog').close();
+});
+
+$('#btnSync').addEventListener('click', () => syncAll());
+$('#btnSettings').addEventListener('click', openSettings);
+$('#btnAuth').addEventListener('click', connectGoogle);
+
+$('#taskForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const v = $('#taskInput').value.trim(); if (!v) return;
+  data.tasks.push({ id: uid(), text: v, done: false, created: Date.now() });
+  $('#taskInput').value = ''; saveData(); renderTasks();
+});
+$('#clearDone').addEventListener('click', () => { data.tasks = data.tasks.filter((t) => !t.done); saveData(); renderTasks(); });
+
+const saveNotes = debounce(() => { data.notes = $('#notes').value; saveData(); $('#notesSaved').textContent = 'Salvo ' + fmtTime(Date.now()); }, 700);
+$('#notes').addEventListener('input', saveNotes);
+
+$('#evAllDay').addEventListener('change', (e) => { $('#evStart').disabled = $('#evEnd').disabled = e.target.checked; });
+$('#eventForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = { title: $('#evTitle').value.trim(), date: $('#evDate').value, start: $('#evStart').value, end: $('#evEnd').value,
+    allDay: $('#evAllDay').checked, location: $('#evLoc').value.trim(), description: $('#evDesc').value.trim() };
+  if (!f.title || !f.date) return toast('Preencha título e data');
+  if (!f.allDay && (!f.start || !f.end || f.end <= f.start)) return toast('Confira o horário de início e fim');
+  $('#dlgEvent').close();
+  try { await createEvent(f); } catch (er) { handleErr(er, 'criar evento'); }
+});
+
+$('#settingsForm').addEventListener('submit', (e) => { e.preventDefault(); saveSettings(); $('#dlgSettings').close(); });
+$('#importFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0]; if (!file) return;
+  try { applyBackup(JSON.parse(await file.text())); saveData(); toast('Backup importado ✓'); }
+  catch (er) { toast('Arquivo inválido: ' + er.message); }
+  e.target.value = '';
+});
+// fecha a folha ao tocar fora
+$$('dialog').forEach((d) => d.addEventListener('click', (e) => { if (e.target === d) d.close(); }));
+
+window.addEventListener('online', () => { renderHeader(); syncAll({ quiet: true }); });
+window.addEventListener('offline', renderHeader);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    if (dirty && cfg.autoBackup && tokenValid()) backupNow({ silent: true });
+  } else {
+    renderHeader(); renderAgenda(); checkAlerts();
+    if (tokenValid() && Date.now() - meta.lastSync > 5 * 60000) syncAll({ quiet: true });
+  }
+});
+
+// ---------- Inicialização ----------
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch((e) => console.warn('SW', e)));
+}
+handleOAuthRedirect();
+renderAll();
+$$('.alertMinTxt').forEach((e) => (e.textContent = cfg.alertMin));
+if (LS.get('hub.eventsWeek', '') !== ymd(weekStart(selDay))) events = [];
+renderAgenda();
+loadNews(newsCat);
+if (tokenValid()) syncAll({ quiet: true });
+
+setInterval(() => { checkAlerts(); renderHeader(); if (sameDay(selDay, new Date())) renderEvents(); }, 30000);
+setInterval(() => { if (tokenValid() && navigator.onLine) { loadUpcoming().catch(() => {}); loadMail().catch(() => {}); } updateAuthUI(); }, 10 * 60000);
+</script>
+</body>
+</html>
