@@ -244,6 +244,7 @@
       <div class="font-semibold">Ajustes</div>
       <button class="text-[15px] font-semibold accent" type="submit">Salvar</button>
     </div>
+    <p class="text-[11px] muted mt-1">✓ Os ajustes são salvos automaticamente enquanto você digita.</p>
 
     <div class="h-sec mt-4">Perfil</div>
     <label class="lbl">Seu nome (saudação)</label><input id="sName" class="input" placeholder="Seu nome">
@@ -1009,7 +1010,7 @@ function openSettings() {
   updateAuthUI(); renderBackupState(); renderNotifState();
   $('#dlgSettings').showModal();
 }
-function saveSettings() {
+function saveSettings({ silent = false } = {}) {
   const prevFolder = cfg.folderName;
   cfg = Object.assign(cfg, {
     name: $('#sName').value.trim(), clientId: $('#sClientId').value.trim(), apiKey: $('#sApiKey').value.trim(),
@@ -1023,7 +1024,7 @@ function saveSettings() {
   $$('.alertMinTxt').forEach((e) => (e.textContent = cfg.alertMin));
   renderHeader(); saveData();
   scheduleNtfy();
-  toast('Ajustes salvos ✓');
+  if (!silent) toast('Ajustes salvos ✓');
 }
 
 // ---------- Eventos de interface ----------
@@ -1053,7 +1054,7 @@ function changeDay(d) {
 }
 
 const ACTIONS = {
-  connect: connectGoogle, disconnect: disconnectGoogle, settings: openSettings,
+  connect: () => { if ($('#dlgSettings').open) saveSettings({ silent: true }); connectGoogle(); }, disconnect: disconnectGoogle, settings: openSettings,
   prevWeek: () => changeDay(addDays(selDay, -7)), nextWeek: () => changeDay(addDays(selDay, 7)), today: () => changeDay(new Date()),
   newEvent: openEventDialog,
   loadMail: () => loadMail().catch((e) => handleErr(e, 'carregar e-mails')),
@@ -1075,7 +1076,7 @@ document.addEventListener('click', (e) => {
   else if (ds.tab) setTab(ds.tab);
   else if (ds.news) { newsCat = ds.news; LS.set('hub.newsCat', newsCat); renderNewsChips(); loadNews(newsCat); }
   else if (ds.mailq) { mail.q = ds.mailq; renderMail(); loadMail().catch((er) => handleErr(er, 'carregar e-mails')); }
-  else if (ds.close !== undefined) t.closest('dialog').close();
+  else if (ds.close !== undefined) { const d = t.closest('dialog'); if (d.id === 'dlgSettings') saveSettings({ silent: true }); d.close(); }
 });
 
 $('#btnSync').addEventListener('click', () => syncAll());
@@ -1105,6 +1106,11 @@ $('#eventForm').addEventListener('submit', async (e) => {
 });
 
 $('#settingsForm').addEventListener('submit', (e) => { e.preventDefault(); saveSettings(); $('#dlgSettings').close(); });
+// Salva os ajustes automaticamente enquanto a pessoa digita (não depende do botão Salvar)
+const autoSaveSettings = debounce(() => { if ($('#dlgSettings').open) saveSettings({ silent: true }); }, 400);
+$('#settingsForm').addEventListener('input', autoSaveSettings);
+$('#settingsForm').addEventListener('change', autoSaveSettings);
+$('#dlgSettings').addEventListener('close', () => saveSettings({ silent: true }));
 $('#importFile').addEventListener('change', async (e) => {
   const file = e.target.files[0]; if (!file) return;
   try { applyBackup(JSON.parse(await file.text())); saveData(); toast('Backup importado ✓'); }
