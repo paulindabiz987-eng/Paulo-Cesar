@@ -4,7 +4,7 @@
    - APIs do Google, RSS, ntfy e Telegram NUNCA passam pelo cache
    - Suporte a notificações (local e Web Push, se um dia você ligar um servidor VAPID) */
 
-const VERSION = 'agenda-hub-v1.2.0';
+const VERSION = 'agenda-hub-v1.3.0';
 const SHELL = [
   './',
   './index.html',
